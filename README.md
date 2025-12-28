@@ -82,6 +82,21 @@ For additional JavaScript hackery, the return value of the JSSpeccy function cal
 * `emu.onReady(callback)` - call the given callback once the emulator is fully initialised
 * `emu.exit()` - immediately stop the emulator and remove it from the document
 
+## Troubleshooting
+
+If the emulator does not start, open the browser's developer console (on Chrome: View -> Developer -> JavaScript Console; on Firefox: Tools -> Browser Tools -> Browser Console) and check for any error messages.
+
+If you see an error such as
+
+```
+TypeError: WebAssembly: Response has unsupported MIME type 'application/octet-stream' expected 'application/wasm'
+```
+
+then you need to configure the web server to serve .wasm files with the correct content type header. If you run your own Apache or Nginx server, follow these [instructions for editing /etc/mime.types](https://gist.github.com/WesThorburn/62ea13952749d6563ce2fb15b45f1ba8). If your hosting provider supports `.htaccess` files, upload one containing the line:
+
+```
+AddType application/wasm wasm
+```
 
 ## Licence
 
