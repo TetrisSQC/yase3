@@ -5,12 +5,12 @@
   "main": "jsspeccy.js",
   "type": "module",
   "scripts": {
-    "test": "npm run build && node --experimental-wasm-modules test/test.js test/tests.in test/tests.expected",
+    "test": "npm run build && node test/test.js test/tests.in test/tests.expected",
     "build:core": "node generator/gencore.js generator/core.ts.in build/core.ts",
     "build:wasm:debug": "asc build/core.ts --target debug",
     "build:wasm:release": "asc build/core.ts --target release",
-    "build:js": "mkdir -p dist/jsspeccy && webpack",
-    "build:static": "mkdir -p dist/jsspeccy && cp static/index.html dist/ && cp static/favicon.ico dist/ && cp README.md dist/ && cp COPYING dist/ && cp CHANGELOG.md dist/ && cp -r static/roms dist/jsspeccy && cp -r static/tapeloaders dist/jsspeccy",
+    "build:js": "mkdir -p dist/jsspeccy && NODE_OPTIONS=--openssl-legacy-provider webpack",
+    "build:static": "mkdir -p dist/jsspeccy && cp static/index.html dist/ && cp static/favicon.ico dist/ && cp static/manifest.webmanifest dist/ && cp static/service-worker.js dist/ && (cp static/icon-*.png dist/ 2>/dev/null || true) && cp README.md dist/ && cp COPYING dist/ && cp COPYING.gpl3 dist/ && cp CREDITS.md dist/ && cp CHANGELOG.md dist/ && cp -r static/roms dist/jsspeccy && cp -r static/tapeloaders dist/jsspeccy",
     "build": "npm run build:core && npm run build:wasm:debug && npm run build:js && npm run build:static",
     "build:release": "npm run build:core && npm run build:wasm:release && npm run build:js && npm run build:static",
     "watch": "npm-watch"
@@ -38,7 +38,10 @@
         "runtime/icons/*.svg",
         "build/*.js"
       ],
-      "extensions": ["js", "svg"]
+      "extensions": [
+        "js",
+        "svg"
+      ]
     },
     "build:static": {
       "patterns": [
@@ -63,6 +66,7 @@
   "dependencies": {
     "file-dialog": "^0.0.8",
     "jszip": "^3.7.1",
-    "pako": "^2.0.4"
+    "pako": "^2.0.4",
+    "source-map-support": "^0.5.21"
   }
 }

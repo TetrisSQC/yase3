@@ -1,0 +1,26 @@
+{
+  "name": "YaSE — ZX Spectrum Emulator",
+  "short_name": "YaSE",
+  "description": "ZX Spectrum emulator with +D, DISCiPLE, Multiface, IF1/Microdrive, RZX, debugger and more.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["games", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

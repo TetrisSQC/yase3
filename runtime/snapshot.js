@@ -239,18 +239,36 @@ export function parseSZXFile(data) {
         throw "Not a valid SZX file";
     }
 
+    // ZXST machine-id byte → registered MachineDef id. See ZXST spec.
     const machineId = file.getUint8(6);
     switch (machineId) {
-        case 1:
-            snapshot.model = 48;
-            break;
-        case 2:
-        case 3:
-            snapshot.model = 128;
-            break;
-        case 7:
-            snapshot.model = 5;
-            break;
+        case 1:                       // ZXSTMID_48K
+            snapshot.model = 48; break;
+        case 2:                       // ZXSTMID_128K
+        case 3:                       // ZXSTMID_PLUS2
+            snapshot.model = 128; break;
+        case 4:                       // ZXSTMID_PLUS2A
+            snapshot.model = 4; break;
+        case 5:                       // ZXSTMID_PLUS3
+            snapshot.model = 15; break;
+        case 7:                       // ZXSTMID_PENTAGON128
+            snapshot.model = 5; break;
+        case 8:                       // ZXSTMID_SE
+            snapshot.model = 8; break;
+        case 13:                      // ZXSTMID_TS2068
+            snapshot.model = 13; break;
+        case 14:                      // ZXSTMID_TC2048
+            snapshot.model = 14; break;
+        case 15:                      // ZXSTMID_TC2068 (registry id 17 to avoid clash with +3=15)
+            snapshot.model = 17; break;
+        case 9:                       // ZXSTMID_SCORPION
+            snapshot.model = 9; break;
+        case 10:                      // ZXSTMID_PENTAGON512
+            snapshot.model = 10; break;
+        case 11:                      // ZXSTMID_PENTAGON1024
+            snapshot.model = 11; break;
+        case 12:                      // ZXSTMID_PLUS3E
+            snapshot.model = 12; break;
         default:
             throw "Unsupported machine type: " + machineId;
     }

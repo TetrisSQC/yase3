@@ -192,20 +192,26 @@ export class StandardKeyboardHandler extends BaseKeyboardHandler {
         this.seenKeyCodes = {};
 
         this.keydownHandler = (evt) => {
-            let keyInfo = KEY_CODES[evt.keyCode];
-            if (keyInfo) {
-                this.keyDown(keyInfo);
-            } else {
-                keyInfo = KEY_CODES[evt.key];
-                if (keyInfo) {
-                    const lastKeyInfo = this.seenKeyCodes[evt.keyCode];
-                    if (lastKeyInfo && lastKeyInfo !== keyInfo) {
-                        this.keyUp(lastKeyInfo);
-                    }
-                    this.seenKeyCodes[evt.keyCode] = keyInfo;
-                    this.keyDown(keyInfo);
+            // Resolution order: prefer the typed character (evt.key) when a
+            // mapping exists for it. This is what makes Shift-based symbol
+            // combinations work on layouts that differ from US — e.g. on a
+            // German keyboard " is Shift+2 which produces keyCode 50 (= digit
+            // 2). Looking up evt.key='"' lets us emit SymbolShift+P even
+            // though the physical key is the 2 key. Letter keys (J, K, …)
+            // have no character mapping so fall through to keyCode.
+            let keyInfo = null;
+            const charMapping = evt.key ? KEY_CODES[evt.key] : null;
+            if (charMapping) {
+                keyInfo = charMapping;
+                const lastKeyInfo = this.seenKeyCodes[evt.keyCode];
+                if (lastKeyInfo && lastKeyInfo !== keyInfo) {
+                    this.keyUp(lastKeyInfo);
                 }
+                this.seenKeyCodes[evt.keyCode] = keyInfo;
+            } else {
+                keyInfo = KEY_CODES[evt.keyCode];
             }
+            if (keyInfo) this.keyDown(keyInfo);
             if (!evt.metaKey) evt.preventDefault();
         };
 

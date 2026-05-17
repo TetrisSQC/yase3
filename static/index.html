@@ -1,20 +1,46 @@
 <!doctype html>
 <html>
     <head>
-        <title>JSSpeccy v3</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="theme-color" content="#000000">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="YaSE">
+        <link rel="manifest" href="manifest.webmanifest">
+        <link rel="apple-touch-icon" href="icon-192.png">
+        <title>YaSE — ZX Spectrum</title>
+        <script>
+            // PWA service worker registration. Only runs when served over
+            // http(s) and on browsers that support it.
+            if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('service-worker.js')
+                        .catch((e) => console.warn('SW register failed:', e));
+                });
+            }
+        </script>
         <script src="jsspeccy/jsspeccy.js"></script>
         <style>
-            body {
-                background-color: #444;
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #000;
+                overflow: hidden;
             }
             #jsspeccy {
-                width: 640px;
-                margin: auto;
-                background-color: white;
+                width: 100vw;
+                height: 100vh;
+                background-color: #000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         </style>
     </head>
-    <body onload="emu = JSSpeccy(document.getElementById('jsspeccy'), {zoom: 2, sandbox: false})">
+    <body onload="emu = JSSpeccy(document.getElementById('jsspeccy'), {sandbox: false, uiEnabled: false, autoStart: true, openMenuOnReady: true, touchControls: true, zxKeyboard: true})">
         <div id="jsspeccy"></div>
     </body>
 </html>

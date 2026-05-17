@@ -17,6 +17,6 @@
     }
   },
   "options": {
-    "memoryBase": 589824
+    "memoryBase": 2097152
   }
 }

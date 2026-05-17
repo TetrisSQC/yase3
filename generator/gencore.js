@@ -46,7 +46,7 @@ loadOpcodeTable('generator/opcodes_ed.txt', edOpcodes);
 
 class Variable {
     getter() {
-        throw "getter not implemented";
+        throw new Error("getter not implemented for " + this.constructor.name + " " + (this.address ?? '') + " at line: " + currentLine);
     }
     setter(expr) {
         throw "setter not implemented";
@@ -291,7 +291,9 @@ const generateOpcodeTable = (prefix, outFile) => {
 const inFile = fs.createReadStream(inputFilename);
 const outFile = fs.createWriteStream(outputFilename);
 
+let currentLine = '';
 const processLine = (line) => {
+    currentLine = line;
     if (line.startsWith('#')) {
         let match;
         match = line.match(/^#alloc\s+(\w+)\s*\[\s*(\w+)\s*\]\s*:\s*(\w+)\s*$/);

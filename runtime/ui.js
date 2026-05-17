@@ -221,25 +221,25 @@ export class UIController extends EventEmitter {
         this.canvas = emulator.canvas;
         this.uiEnabled = ('uiEnabled' in opts) ? opts.uiEnabled : true;
 
-        /* build UI elements */
-        if (this.uiEnabled) {
-            this.dialog = document.createElement('div');
-            this.dialog.style.display = 'none';
-            container.appendChild(this.dialog);
-            const dialogCloseButton = document.createElement('button');
-            dialogCloseButton.innerHTML = closeIcon;
-            dialogCloseButton.style.float = 'right';
-            dialogCloseButton.style.border = 'none';
-            dialogCloseButton.firstChild.style.height = '20px';
-            dialogCloseButton.firstChild.style.verticalAlign = 'middle';
-            this.dialog.appendChild(dialogCloseButton);
-            dialogCloseButton.addEventListener('click', () => {
-                this.hideDialog();
-            })
-            this.dialogBody = document.createElement('div');
-            this.dialogBody.style.clear = 'both';
-            this.dialog.appendChild(this.dialogBody);
-        }
+        /* Modal overlay dialog — always created so it remains usable in
+         * no-chrome (uiEnabled:false) mode for things like the game search
+         * dialog. Hidden by default. */
+        this.dialog = document.createElement('div');
+        this.dialog.style.display = 'none';
+        container.appendChild(this.dialog);
+        const dialogCloseButton = document.createElement('button');
+        dialogCloseButton.innerHTML = closeIcon;
+        dialogCloseButton.style.float = 'right';
+        dialogCloseButton.style.border = 'none';
+        dialogCloseButton.firstChild.style.height = '20px';
+        dialogCloseButton.firstChild.style.verticalAlign = 'middle';
+        this.dialog.appendChild(dialogCloseButton);
+        dialogCloseButton.addEventListener('click', () => {
+            this.hideDialog();
+        });
+        this.dialogBody = document.createElement('div');
+        this.dialogBody.style.clear = 'both';
+        this.dialog.appendChild(this.dialogBody);
 
         this.appContainer = document.createElement('div');
         container.appendChild(this.appContainer);
@@ -452,9 +452,7 @@ export class UIController extends EventEmitter {
         this.dialogBody.innerHTML = '';
     }
     unload() {
-        if (this.uiEnabled) {
-            this.dialog.remove();
-        }
+        this.dialog.remove();
         this.appContainer.remove();
     }
 }
