@@ -96,7 +96,8 @@ export class ZXKeyboard {
         const ASPECT = 1926 / 817;
         this.wrap = document.createElement('div');
         this.wrap.style.cssText = [
-            'position:absolute','left:0','right:0','bottom:0',
+            'position:absolute','left:0','right:0',
+            'bottom:env(safe-area-inset-bottom, 0px)',
             'width:100%','aspect-ratio:1926/817',
             'background-image:url('+keybImageUrl+')',
             'background-size:100% 100%','background-repeat:no-repeat',
@@ -185,7 +186,8 @@ export class ZXKeyboard {
         // Reserve space at bottom of container so canvas shrinks above.
         requestAnimationFrame(() => {
             this._syncHeight?.();
-            this.container.style.paddingBottom = this.wrap.offsetHeight + 'px';
+            const bottomOffset = parseFloat(getComputedStyle(this.wrap).bottom) || 0;
+            this.container.style.paddingBottom = (this.wrap.offsetHeight + bottomOffset) + 'px';
             this.container.style.boxSizing = 'border-box';
             this._refreshLayout();
         });
