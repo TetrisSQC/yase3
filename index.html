@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="YaSE — Yet another Spectrum Emulator. Every ZX Spectrum model in your browser. No installs. Works offline. WebAssembly Z80 core, WebGL CRT shader, full peripheral support.">
+  <title>YaSE — ZX Spectrum in your browser</title>
+
+  <!-- NOTE: Production deployment should self-host these WOFF2 files -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── TOKENS ──────────────────────────────────────────────────────────── */
+    :root {
+      --bg-0: #07070a;
+      --bg-1: #0d0d11;
+      --bg-2: #131318;
+      --bg-3: #1b1b22;
+      --text-1: #e0dbd4;
+      --text-2: #7d786f;
+      --text-3: #363638;
+      --border: #1c1c22;
+      --border-hi: #282830;
+      /* Sinclair 8-color palette */
+      --zx-blk: #07070a;
+      --zx-blu: #2040c0;
+      --zx-red: #cc2a1c;
+      --zx-mag: #b01ea0;
+      --zx-grn: #14a436;
+      --zx-cyn: #0da0bc;
+      --zx-yel: #ccaa10;
+      --zx-wht: #e0dbd4;
+      /* ease */
+      --ease: cubic-bezier(.2,.8,.2,1);
+      --page-pad: clamp(1.25rem, 5vw, 4.5rem);
+      --gap-section: clamp(4rem, 8vw, 7rem);
+      --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+      --font-body: 'Manrope', system-ui, -apple-system, sans-serif;
+    }
+
+    /* ── RESET ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      background: var(--bg-0);
+      color: var(--text-1);
+      font-family: var(--font-body);
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible,
+    button:focus-visible { outline: 2px solid var(--zx-cyn); outline-offset: 3px; border-radius: 2px; }
+    img { display: block; max-width: 100%; height: auto; }
+
+    /* ── LAYOUT ──────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding-inline: var(--page-pad);
+    }
+
+    /* ── SINCLAIR 8-STRIPE ───────────────────────────────────────────────── */
+    .sinclair-stripe {
+      display: flex;
+      height: 3px;
+    }
+    .sinclair-stripe span { flex: 1; display: block; }
+    .sinclair-stripe span:nth-child(1) { background: var(--zx-blk); flex: 3; }
+    .sinclair-stripe span:nth-child(2) { background: var(--zx-blu); }
+    .sinclair-stripe span:nth-child(3) { background: var(--zx-red); }
+    .sinclair-stripe span:nth-child(4) { background: var(--zx-mag); }
+    .sinclair-stripe span:nth-child(5) { background: var(--zx-grn); }
+    .sinclair-stripe span:nth-child(6) { background: var(--zx-cyn); }
+    .sinclair-stripe span:nth-child(7) { background: var(--zx-yel); }
+    .sinclair-stripe span:nth-child(8) { background: var(--zx-wht); }
+
+    /* ── LABEL ───────────────────────────────────────────────────────────── */
+    .label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: .6rem;
+      font-weight: 500;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--zx-cyn);
+      margin-bottom: .75rem;
+    }
+
+    /* ── BUTTONS ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4em;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: .65em 1.4em;
+      border-radius: 2px;
+      border: none;
+      cursor: pointer;
+      transition: all 180ms var(--ease);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-cyan { background: var(--zx-cyn); color: #000; }
+    .btn-cyan:hover { background: #12b8d8; }
+    .btn-cyan:active { background: #0a8a9f; transform: translateY(1px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border-hi);
+    }
+    .btn-ghost:hover { color: var(--text-1); border-color: var(--text-3); }
+    .btn-lg { font-size: .875rem; padding: .75em 1.75em; }
+
+    /* ── NAV ─────────────────────────────────────────────────────────────── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7,7,10,.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding-inline: var(--page-pad);
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.2rem;
+      letter-spacing: -.02em;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      flex-shrink: 0;
+    }
+    .nav-badge {
+      font-size: .52rem;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--zx-cyn);
+      border: 1px solid rgba(13,160,188,.3);
+      padding: .2em .5em;
+      border-radius: 2px;
+      line-height: 1;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+      list-style: none;
+    }
+    @media (max-width: 700px) { .nav-links { display: none; } }
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      font-weight: 500;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      transition: color 160ms;
+    }
+    .nav-links a:hover { color: var(--text-1); }
+    .nav-ctas { display: flex; align-items: center; gap: .625rem; flex-shrink: 0; }
+
+    /* ── HERO ────────────────────────────────────────────────────────────── */
+    .hero {
+      padding-block-start: clamp(3.5rem, 9vw, 6.5rem);
+      overflow: hidden;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr;
+      align-items: center;
+      gap: clamp(2rem, 6vw, 5rem);
+    }
+    @media (max-width: 840px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-visual { order: -1; }
+    }
+
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: .62rem;
+      font-weight: 500;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1.25rem;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: block;
+      width: 18px;
+      height: 1px;
+      background: currentColor;
+    }
+
+    .hero-wordmark {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: clamp(4.5rem, 14vw, 9rem);
+      line-height: .9;
+      letter-spacing: -.04em;
+      color: var(--text-1);
+      margin-bottom: 1.125rem;
+    }
+
+    /* 4-color Sinclair stripe under wordmark */
+    .hero-stripe {
+      display: flex;
+      height: 5px;
+      border-radius: 1px;
+      margin-bottom: 1.75rem;
+      max-width: 280px;
+    }
+    .hero-stripe span { flex: 1; }
+    .hero-stripe span:nth-child(1) { background: var(--zx-red);  border-radius: 1px 0 0 1px; }
+    .hero-stripe span:nth-child(2) { background: var(--zx-yel); }
+    .hero-stripe span:nth-child(3) { background: var(--zx-grn); }
+    .hero-stripe span:nth-child(4) { background: var(--zx-cyn);  border-radius: 0 1px 1px 0; }
+
+    .hero-tagline {
+      font-size: clamp(1.125rem, 2.8vw, 1.5rem);
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--text-1);
+      margin-bottom: .5rem;
+    }
+    .hero-sub {
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      color: var(--text-2);
+      line-height: 1.75;
+      margin-bottom: 2.25rem;
+    }
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      margin-bottom: 2.75rem;
+    }
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: .56rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .stat-val {
+      font-family: var(--font-mono);
+      font-size: .9375rem;
+      font-weight: 700;
+      color: var(--text-1);
+      margin-top: .15rem;
+    }
+
+    /* ── CRT FRAME ───────────────────────────────────────────────────────── */
+    .crt-bezel {
+      background: #0f0f13;
+      border-radius: 6px;
+      padding: 14px 14px 0;
+      box-shadow:
+        0 0 0 1px #18181e,
+        0 0 80px rgba(13,160,188,.07),
+        0 40px 100px rgba(0,0,0,.8);
+      position: relative;
+    }
+    .crt-bezel::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 7px;
+      box-shadow: 0 0 50px rgba(13,160,188,.1), 0 0 120px rgba(13,160,188,.05);
+      pointer-events: none;
+    }
+    .crt-screen-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: 3px 3px 0 0;
+      background: #000;
+      aspect-ratio: 4 / 3;
+      line-height: 0;
+    }
+    #spectrum-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .keyboard-strip {
+      overflow: hidden;
+      border-top: 2px solid #030306;
+      border-radius: 0 0 3px 3px;
+      line-height: 0;
+    }
+    .keyboard-strip img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: clamp(160px, 22vw, 260px);
+      object-fit: cover;
+      object-position: top center;
+      filter: brightness(.82) saturate(.88);
+    }
+
+    /* ── SECTION BASE ────────────────────────────────────────────────────── */
+    .section {
+      padding-block: var(--gap-section);
+      border-top: 1px solid var(--border);
+    }
+    .section-hd { margin-bottom: clamp(1.75rem, 4vw, 3rem); }
+    .section-hd h2 {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      color: var(--text-1);
+    }
+    .section-hd p {
+      margin-top: .75rem;
+      font-size: .9375rem;
+      color: var(--text-2);
+      max-width: 58ch;
+    }
+
+    /* ── MACHINES TABLE ──────────────────────────────────────────────────── */
+    .machines-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: .775rem;
+    }
+    .machines-tbl thead th {
+      text-align: left;
+      padding: .375rem .625rem .375rem 0;
+      font-size: .57rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .machines-tbl tbody tr { border-bottom: 1px solid var(--border); }
+    .machines-tbl tbody tr:hover { background: var(--bg-1); }
+    .machines-tbl tbody td {
+      padding: .525rem .625rem .525rem 0;
+      color: var(--text-2);
+      vertical-align: middle;
+    }
+    .machines-tbl td.model { color: var(--text-1); font-weight: 600; white-space: nowrap; }
+    .tag {
+      display: inline-block;
+      font-size: .52rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .18em .45em;
+      border-radius: 2px;
+      border: 1px solid var(--border-hi);
+      color: var(--text-3);
+      vertical-align: middle;
+      margin-left: .3rem;
+    }
+    .tag-clone { border-color: rgba(204,170,16,.25); color: var(--zx-yel); }
+    .tag-timex { border-color: rgba(13,160,188,.25); color: var(--zx-cyn); }
+    .tag-ussr  { border-color: rgba(20,164,54,.25);  color: var(--zx-grn); }
+    .tag-enh   { border-color: rgba(204,42,28,.22);  color: var(--zx-red); }
+    @media (max-width: 560px) {
+      .col-year, .col-audio { display: none; }
+    }
+
+    /* ── FEATURE CARDS ───────────────────────────────────────────────────── */
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .feat-card {
+      background: var(--bg-0);
+      padding: clamp(1.25rem, 3vw, 1.75rem);
+    }
+    .feat-icon {
+      width: 28px;
+      height: 28px;
+      margin-bottom: .875rem;
+    }
+    .feat-card h3 {
+      font-family: var(--font-mono);
+      font-size: .875rem;
+      font-weight: 700;
+      color: var(--text-1);
+      margin-bottom: .5rem;
+    }
+    .feat-card p { font-size: .84rem; color: var(--text-2); line-height: 1.7; }
+    .feat-card ul {
+      list-style: none;
+      font-size: .82rem;
+      color: var(--text-2);
+      line-height: 1.8;
+    }
+    .feat-card ul li::before { content: '— '; color: var(--text-3); }
+    .chip-wrap { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .625rem; }
+    .chip {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      font-weight: 500;
+      padding: .28em .65em;
+      border: 1px solid var(--border-hi);
+      border-radius: 2px;
+      color: var(--text-2);
+      background: var(--bg-1);
+    }
+    .pwa-wrap { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .875rem; }
+    .pwa-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      font-weight: 500;
+      padding: .3em .75em;
+      border: 1px solid var(--border-hi);
+      border-radius: 2px;
+      color: var(--text-2);
+    }
+    .pwa-chip::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--zx-grn);
+    }
+
+    /* ── FILE FORMATS ────────────────────────────────────────────────────── */
+    .formats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 2rem 3rem;
+    }
+    .fmt-group h3 {
+      font-family: var(--font-mono);
+      font-size: .57rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: .625rem;
+    }
+    .fmt-row {
+      display: grid;
+      grid-template-columns: 3.5em 1fr auto;
+      gap: 0 .625rem;
+      padding: .3rem 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .fmt-row:last-child { border-bottom: none; }
+    .fmt-ext {
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .fmt-desc {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--text-2);
+    }
+    .fmt-rw {
+      font-family: var(--font-mono);
+      font-size: .64rem;
+      display: flex;
+      gap: .3rem;
+    }
+    .rr { color: var(--zx-grn); }
+    .rw { color: var(--zx-cyn); }
+    .rn { color: var(--text-3); }
+    .formats-legend {
+      font-family: var(--font-mono);
+      font-size: .62rem;
+      color: var(--text-3);
+      margin-top: 1.5rem;
+    }
+
+    /* ── TECH BLOCK ──────────────────────────────────────────────────────── */
+    .tech-block {
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .tech-row {
+      display: grid;
+      grid-template-columns: 8.5rem 1fr;
+      gap: .5rem 1.5rem;
+      padding: .65rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      align-items: baseline;
+    }
+    .tech-row:last-child { border-bottom: none; }
+    .tech-k {
+      color: var(--zx-cyn);
+      font-size: .68rem;
+      letter-spacing: .05em;
+      font-weight: 600;
+    }
+    .tech-v { color: var(--text-2); line-height: 1.65; }
+    .tech-v code { color: var(--text-1); background: var(--bg-2); padding: .1em .35em; border-radius: 2px; font-size: .92em; }
+    @media (max-width: 480px) { .tech-row { grid-template-columns: 1fr; gap: .15rem; } }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────────── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding-block: clamp(2rem, 5vw, 3.5rem);
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 560px) { .footer-grid { grid-template-columns: 1fr; } }
+    .footer-logo {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -.02em;
+      color: var(--text-1);
+      margin-bottom: .3rem;
+    }
+    .footer-tagline {
+      font-family: var(--font-mono);
+      font-size: .6rem;
+      color: var(--text-3);
+      letter-spacing: .08em;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .2rem 1.5rem;
+      list-style: none;
+      margin-top: 1.125rem;
+    }
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--text-3);
+      transition: color 140ms;
+    }
+    .footer-links a:hover { color: var(--text-2); }
+    .footer-legal {
+      font-size: .63rem;
+      color: var(--text-3);
+      line-height: 1.8;
+      max-width: 36ch;
+      text-align: right;
+    }
+    @media (max-width: 560px) { .footer-legal { text-align: left; max-width: none; } }
+
+    /* ── SCROLL REVEAL ───────────────────────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+    .reveal.on { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      html { scroll-behavior: auto; }
+    }
+
+    /* ── STORY SECTION ──────────────────────────────────────────────────── */
+    .story-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: clamp(2rem, 6vw, 5rem);
+      align-items: start;
+    }
+    @media (max-width: 700px) { .story-grid { grid-template-columns: 1fr; } }
+    .story-text p {
+      font-size: 1rem;
+      color: var(--text-2);
+      line-height: 1.8;
+      margin-bottom: 1.125rem;
+    }
+    .story-text p:last-child { margin-bottom: 0; }
+    .story-text strong { color: var(--text-1); font-weight: 600; }
+
+    .tl-wrap { border: 1px solid var(--border); border-radius: 3px; }
+    .tl-item {
+      display: grid;
+      grid-template-columns: 4.5rem 1fr;
+      gap: 0 1.25rem;
+      padding: .625rem 1rem;
+      border-bottom: 1px solid var(--border);
+      align-items: baseline;
+    }
+    .tl-item:last-child { border-bottom: none; }
+    .tl-year {
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--text-3);
+    }
+    .tl-item.now .tl-year { color: var(--zx-cyn); }
+    .tl-desc {
+      font-family: var(--font-mono);
+      font-size: .73rem;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+    .tl-item.now { background: var(--bg-1); }
+    .tl-item.now .tl-desc { color: var(--text-1); }
+
+    /* ── TWEAKS PANEL ────────────────────────────────────────────────────── */
+    #tweaks-panel {
+      display: none;
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9999;
+      background: var(--bg-2);
+      border: 1px solid var(--border-hi);
+      border-radius: 4px;
+      padding: 1.125rem 1.25rem;
+      width: 230px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      color: var(--text-2);
+    }
+    #tweaks-panel.open { display: block; }
+    #tweaks-panel h4 {
+      font-size: .62rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: .875rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #tweaks-panel h4 button {
+      background: none;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      font-size: .8rem;
+      padding: 0;
+      line-height: 1;
+    }
+    #tweaks-panel h4 button:hover { color: var(--text-1); }
+    .tweak-row { margin-bottom: .75rem; }
+    .tweak-row label { display: block; color: var(--text-3); margin-bottom: .3rem; font-size: .65rem; letter-spacing: .1em; text-transform: uppercase; }
+    .tweak-row input[type=range] { width: 100%; accent-color: var(--zx-cyn); cursor: pointer; }
+    .tweak-row select {
+      width: 100%;
+      background: var(--bg-3);
+      border: 1px solid var(--border-hi);
+      color: var(--text-1);
+      border-radius: 2px;
+      padding: .35em .5em;
+      font-family: var(--font-mono);
+      font-size: .72rem;
+    }
+    .tweak-row .swatch-row { display: flex; gap: .4rem; margin-top: .3rem; }
+    .swatch {
+      width: 22px; height: 22px; border-radius: 2px; cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 120ms;
+    }
+    .swatch.active { border-color: var(--text-1); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ NAV ═══ -->
+<header>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" aria-label="YaSE — home">
+        YaSE <span class="nav-badge">PWA</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#machines">Machines</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#formats">Formats</a></li>
+        <li><a href="#howto">Dev info</a></li>
+      </ul>
+      <div class="nav-ctas">
+        <button class="btn btn-ghost" id="install-btn" hidden aria-label="Install YaSE as Progressive Web App">Install</button>
+        <a href="/dist/" class="btn btn-cyan" aria-label="Launch YaSE emulator">Launch ›</a>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════════ HERO ═══ -->
+<section class="hero" id="hero" aria-labelledby="hero-heading">
+  <div class="container">
+    <div class="hero-grid">
+
+      <div class="hero-text">
+        <p class="hero-eyebrow">Open source &middot; Started 1998 &middot; Done.</p>
+
+        <h1 class="hero-wordmark" id="hero-heading">YaSE</h1>
+
+        <div class="hero-stripe" role="presentation" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+
+        <p class="hero-tagline">Every ZX Spectrum,<br>in your browser.</p>
+        <p class="hero-sub">
+          15 machines &middot; 13 peripherals &middot; 15 file formats<br>
+          No install. Works offline. Free and open source.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="/app/" class="btn btn-cyan btn-lg" aria-label="Launch the YaSE emulator">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden="true"><polygon points="2,1 12,6.5 2,12"/></svg>
+            Launch emulator
+          </a>
+          <a href="https://github.com/TetrisSQC/yase3" rel="noopener noreferrer" class="btn btn-ghost btn-lg" aria-label="YaSE on GitHub">
+            GitHub
+          </a>
+        </div>
+
+        <div class="hero-stats" aria-label="Key statistics">
+          <div><div class="stat-label">Machines</div><div class="stat-val">15</div></div>
+          <div><div class="stat-label">Peripherals</div><div class="stat-val">13</div></div>
+          <div><div class="stat-label">Z80 core</div><div class="stat-val">Wasm</div></div>
+          <div><div class="stat-label">License</div><div class="stat-val">GPL&nbsp;v3</div></div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="crt-bezel">
+          <div class="crt-screen-wrap" id="crt-wrap">
+            <canvas id="spectrum-canvas"
+              role="img"
+              aria-label="YaSE running ZX Spectrum 128K — BASIC menu: Tape Loader, 128 BASIC, Calculator, 48 BASIC, Tape Tester"
+            ></canvas>
+          </div>
+          <div class="keyboard-strip">
+            <img
+              src="assets/keyboard.png"
+              alt="ZX Spectrum rubber-key keyboard with Sinclair colour-coded function labels and rainbow stripe"
+              loading="eager"
+            >
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /hero-grid -->
+  </div><!-- /container -->
+
+  <!-- Full Sinclair 8-color stripe at base of hero -->
+  <div style="margin-top: clamp(3rem,6vw,5.5rem);">
+    <div class="sinclair-stripe" role="presentation" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════ STORY ═══ -->
+<section class="section" id="story" aria-labelledby="story-h">
+  <div class="container">
+    <div class="story-grid reveal">
+
+      <div class="story-text">
+        <span class="label">The story</span>
+        <p>Growing up in East Germany, a ZX Spectrum was a window into a different world — one that wasn't officially supposed to be accessible. That machine left its mark.</p>
+        <p>I wrote the first version in 1998, in Turbo Pascal&nbsp;6 on DOS. Then Delphi&nbsp;7. Then FireMonkey. Porting all of that to JavaScript would have been enormous &mdash; so for the browser version I built on top of <a href="https://github.com/gasman/jsspeccy3" rel="noopener noreferrer" style="color:var(--zx-cyn);text-underline-offset:2px;text-decoration:underline">JSSpeccy&nbsp;3</a>, Thomas Harte's WebAssembly Z80 core. That foundation saved years of work.</p>
+        <p>What YaSE adds is everything JSSpeccy&nbsp;3 didn't cover: the additional machines, peripherals, file formats, debugger, CRT shader, and PWA layer. With some help from AI, it finally became what I had in mind thirty years ago. <strong>It's done.</strong></p>
+      </div>
+
+      <div>
+        <div class="tl-wrap" role="list" aria-label="Platform evolution">
+          <div class="tl-item" role="listitem">
+            <span class="tl-year">1982</span>
+            <span class="tl-desc">ZX Spectrum 48K released by Sinclair Research</span>
+          </div>
+          <div class="tl-item" role="listitem">
+            <span class="tl-year">1998</span>
+            <span class="tl-desc">First version — Turbo Pascal&nbsp;6 on DOS</span>
+          </div>
+          <div class="tl-item" role="listitem">
+            <span class="tl-year">Early 2000s</span>
+            <span class="tl-desc">Port to Delphi&nbsp;4, Windows</span>
+          </div>
+          <div class="tl-item" role="listitem">
+            <span class="tl-year">~2018</span>
+            <span class="tl-desc">Port to FireMonkey — cross-platform</span>
+          </div>
+          <div class="tl-item now" role="listitem">
+            <span class="tl-year">Now</span>
+            <span class="tl-desc">JavaScript + WebAssembly — browser, offline, done</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════ MACHINES ═══ -->
+<section class="section" id="machines" aria-labelledby="machines-h">
+  <div class="container">
+    <div class="section-hd reveal">
+      <span class="label">Hardware</span>
+      <h2 id="machines-h">15 machines emulated</h2>
+      <p>From the 1982 original rubber-key 16K to Pentagon clones and the 2005 Spectrum SE — cycle-accurate where it matters.</p>
+    </div>
+    <div class="reveal">
+      <table class="machines-tbl" aria-label="Emulated ZX Spectrum machine models">
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col" class="col-year">Year</th>
+            <th scope="col">RAM</th>
+            <th scope="col" class="col-audio">Audio</th>
+            <th scope="col">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="model">ZX Spectrum 16K</td>     <td class="col-year">1982</td><td>16 KB</td>  <td class="col-audio">Beeper</td>          <td>Original Issue 1/2</td></tr>
+          <tr><td class="model">ZX Spectrum 48K</td>     <td class="col-year">1982</td><td>48 KB</td>  <td class="col-audio">Beeper</td>          <td>Rubber-key classic</td></tr>
+          <tr><td class="model">ZX Spectrum 128</td>     <td class="col-year">1986</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>3-channel AY music</td></tr>
+          <tr><td class="model">ZX Spectrum +2</td>      <td class="col-year">1986</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>Amstrad, built-in tape deck</td></tr>
+          <tr><td class="model">ZX Spectrum +2A</td>     <td class="col-year">1987</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>+3 BIOS variant, no disk</td></tr>
+          <tr><td class="model">ZX Spectrum +3</td>      <td class="col-year">1987</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>3″ floppy disk drive</td></tr>
+          <tr><td class="model">ZX Spectrum +3e<span class="tag tag-enh">ENH</span></td><td class="col-year">2000</td><td>128 KB</td><td class="col-audio">Beeper + AY-3-8912</td><td>Enhanced +3, IDE interface</td></tr>
+          <tr><td class="model">Pentagon 128<span class="tag tag-ussr">USSR</span></td>  <td class="col-year">1989</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>Soviet clone, extended border</td></tr>
+          <tr><td class="model">Pentagon 512<span class="tag tag-ussr">USSR</span></td>  <td class="col-year">—</td>   <td>512 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>Enhanced Pentagon</td></tr>
+          <tr><td class="model">Pentagon 1024<span class="tag tag-ussr">USSR</span></td> <td class="col-year">—</td>   <td>1 MB</td>   <td class="col-audio">Beeper + AY-3-8912</td>   <td>Max Pentagon expansion</td></tr>
+          <tr><td class="model">Scorpion ZS 256<span class="tag tag-clone">CLONE</span></td><td class="col-year">1991</td><td>256 KB</td><td class="col-audio">Beeper + AY-3-8912</td><td>Russian clone, ZSDOS</td></tr>
+          <tr><td class="model">TC2048<span class="tag tag-timex">TIMEX</span></td>      <td class="col-year">1984</td><td>48 KB</td>  <td class="col-audio">Beeper</td>          <td>Timex Computer 2048</td></tr>
+          <tr><td class="model">TC2068<span class="tag tag-timex">TIMEX</span></td>      <td class="col-year">1984</td><td>76 KB</td>  <td class="col-audio">Beeper + AY-3-8912</td>   <td>Timex Dock, cartridge port</td></tr>
+          <tr><td class="model">TS2068<span class="tag tag-timex">TIMEX</span></td>      <td class="col-year">1983</td><td>76 KB</td>  <td class="col-audio">Beeper + AY-3-8912</td>   <td>US variant of TC2068</td></tr>
+          <tr><td class="model">Spectrum SE<span class="tag tag-enh">ENH</span></td>     <td class="col-year">2005</td><td>128 KB</td> <td class="col-audio">Beeper + AY-3-8912</td>   <td>Extended 48K, extra ROM pages</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ FEATURES ═══ -->
+<section class="section" id="features" aria-labelledby="features-h">
+  <div class="container">
+    <div class="section-hd reveal">
+      <span class="label">Feature set</span>
+      <h2 id="features-h">What it supports</h2>
+    </div>
+    <div class="feat-grid reveal">
+
+      <!-- Peripherals -->
+      <div class="feat-card">
+        <svg class="feat-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="3" y="9" width="22" height="13" rx="2" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <circle cx="14" cy="15.5" r="2.5" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <line x1="7" y1="5" x2="7" y2="9"  stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="14" y1="5" x2="14" y2="9" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="5" x2="21" y2="9" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <h3>Peripherals</h3>
+        <div class="chip-wrap">
+          <span class="chip">Interface 1</span>
+          <span class="chip">Microdrive</span>
+          <span class="chip">Interface 2</span>
+          <span class="chip">+D</span>
+          <span class="chip">DISCiPLE</span>
+          <span class="chip">Didaktik D80</span>
+          <span class="chip">Multiface One</span>
+          <span class="chip">Multiface 128</span>
+          <span class="chip">Multiface 3</span>
+          <span class="chip">Timex Dock</span>
+          <span class="chip">Beta128 / TR-DOS</span>
+          <span class="chip">+3 FDC</span>
+          <span class="chip">Kempston Joy. + Mouse</span>
+        </div>
+      </div>
+
+      <!-- Display & Input -->
+      <div class="feat-card">
+        <svg class="feat-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="3" y="4" width="22" height="16" rx="2" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <line x1="10" y1="20" x2="10" y2="24" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="18" y1="20" x2="18" y2="24" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="7" y1="24" x2="21" y2="24"  stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="3" y1="8"  x2="25" y2="8"  stroke="var(--zx-cyn)" stroke-width=".6" stroke-dasharray="1.5 2"/>
+          <line x1="3" y1="11" x2="25" y2="11" stroke="var(--zx-cyn)" stroke-width=".6" stroke-dasharray="1.5 2"/>
+          <line x1="3" y1="14" x2="25" y2="14" stroke="var(--zx-cyn)" stroke-width=".6" stroke-dasharray="1.5 2"/>
+        </svg>
+        <h3>Display &amp; Input</h3>
+        <ul>
+          <li>WebGL CRT shader — scanlines, vignette, distortion, flicker, pixel-shift</li>
+          <li>Configurable aspect ratio and filter intensity</li>
+          <li>Touch joystick + on-screen ZX keyboard overlay for mobile</li>
+          <li>Gamepad API → Kempston joystick mapping</li>
+        </ul>
+      </div>
+
+      <!-- Developer Tools -->
+      <div class="feat-card" id="devtools">
+        <svg class="feat-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="3" width="24" height="22" rx="2" stroke="var(--zx-cyn)" stroke-width="1.5" fill="none"/>
+          <polyline points="6,11 10,14 6,17" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="13" y1="17" x2="22" y2="17" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="7" y1="7" x2="18" y2="7" stroke="var(--zx-cyn)" stroke-width=".8"/>
+        </svg>
+        <h3>Developer tools</h3>
+        <ul>
+          <li>Live Z80 debugger — disassembler, breakpoints, step / step-over</li>
+          <li>Register dump + full flag display</li>
+          <li>Memory viewer — hex + ASCII, goto, poke</li>
+          <li>Pokefinder for cheat codes</li>
+          <li>RZX input record + deterministic playback</li>
+          <li>Snapshot export (.z80)</li>
+        </ul>
+      </div>
+
+      <!-- PWA -->
+      <div class="feat-card">
+        <svg class="feat-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <path d="M14 3 C8.5 3 4 7.5 4 13 C4 18.5 8.5 23 14 23 C19.5 23 24 18.5 24 13 C24 7.5 19.5 3 14 3Z" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <path d="M14 3 C11 7 11 19 14 23" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <path d="M14 3 C17 7 17 19 14 23" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <line x1="4.5" y1="13" x2="23.5" y2="13" stroke="var(--zx-cyn)" stroke-width="1.5"/>
+          <polyline points="11,6.5 14,3 17,6.5" stroke="var(--zx-cyn)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <h3>Progressive Web App</h3>
+        <p>Install once, run forever. Cache-first service worker keeps ROMs and emulator code available without a network connection after first visit.</p>
+        <div class="pwa-wrap">
+          <span class="pwa-chip">iOS Safari</span>
+          <span class="pwa-chip">Android Chrome</span>
+          <span class="pwa-chip">Chrome</span>
+          <span class="pwa-chip">Edge</span>
+          <span class="pwa-chip">Firefox</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ FORMATS ═══ -->
+<section class="section" id="formats" aria-labelledby="formats-h">
+  <div class="container">
+    <div class="section-hd reveal">
+      <span class="label">Compatibility</span>
+      <h2 id="formats-h">File format support</h2>
+      <p>Load a .tzx tape, snapshot mid-game to .z80, replay a session with .rzx — 15 formats across snapshots, tapes, disks, cartridges and replays.</p>
+    </div>
+    <div class="formats-grid reveal">
+
+      <div class="fmt-group">
+        <h3>Snapshots</h3>
+        <div class="fmt-row"><span class="fmt-ext">.z80</span><span class="fmt-desc">Z80 snapshot</span><span class="fmt-rw"><span class="rr">R</span><span class="rw">W</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.szx</span><span class="fmt-desc">ZX-State snapshot</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.sna</span><span class="fmt-desc">SNA snapshot</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+      </div>
+
+      <div class="fmt-group">
+        <h3>Tapes</h3>
+        <div class="fmt-row"><span class="fmt-ext">.tap</span><span class="fmt-desc">TAP tape image</span><span class="fmt-rw"><span class="rr">R</span><span class="rw">W</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.tzx</span><span class="fmt-desc">TZX tape image</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+      </div>
+
+      <div class="fmt-group">
+        <h3>Disks</h3>
+        <div class="fmt-row"><span class="fmt-ext">.trd</span><span class="fmt-desc">TR-DOS (Beta128)</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.dsk</span><span class="fmt-desc">+3 / CPC disk image</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.mgt</span><span class="fmt-desc">+D / DISCiPLE disk</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.img</span><span class="fmt-desc">Generic disk image</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.d80</span><span class="fmt-desc">Didaktik D80</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.d40</span><span class="fmt-desc">Didaktik D40</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.mdr</span><span class="fmt-desc">IF1 Microdrive</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+      </div>
+
+      <div class="fmt-group">
+        <h3>Cartridges &amp; Replays</h3>
+        <div class="fmt-row"><span class="fmt-ext">.rom</span><span class="fmt-desc">Interface 2 ROM cart</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.dck</span><span class="fmt-desc">Timex Dock cartridge</span><span class="fmt-rw"><span class="rr">R</span><span class="rn">—</span></span></div>
+        <div class="fmt-row"><span class="fmt-ext">.rzx</span><span class="fmt-desc">Input recording / replay</span><span class="fmt-rw"><span class="rr">R</span><span class="rw">W</span></span></div>
+      </div>
+
+    </div>
+    <p class="formats-legend">
+      <span style="color:var(--zx-grn)">R</span> = read &nbsp;
+      <span style="color:var(--zx-cyn)">W</span> = write &nbsp;
+      <span style="color:var(--text-3)">—</span> = read-only in this release &nbsp;·&nbsp;
+      .tap write via save-trap
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ HOW IT WORKS ═ -->
+<section class="section" id="howto" aria-labelledby="howto-h">
+  <div class="container">
+    <div class="section-hd reveal">
+      <span class="label">For developers</span>
+      <h2 id="howto-h">How it works</h2>
+      <p>Open source, thoroughly attributed, built on open standards. Pull requests welcome.</p>
+    </div>
+    <div class="tech-block reveal" role="table" aria-label="Technical architecture">
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">Z80 core</span>
+        <span class="tech-v" role="cell">AssemblyScript compiled to WebAssembly — near-native Z80 speed in every modern browser. Adapted from <code>JSSpeccy&nbsp;3</code> (Thomas Harte) with Fuse 1.8.0 machine-model extensions (Philip Kendall et al.).</span>
+      </div>
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">Threading</span>
+        <span class="tech-v" role="cell">Emulation loop runs in a <code>Web Worker</code>. The UI thread is never blocked — stays at a smooth 60 fps regardless of emulation load.</span>
+      </div>
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">Framebuffer</span>
+        <span class="tech-v" role="cell">Per-frame <code>postMessage</code> carries the 256×192 pixel framebuffer and AY-3-8912 audio sample block to the UI thread for WebGL rendering.</span>
+      </div>
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">RZX replay</span>
+        <span class="tech-v" role="cell">8192-byte input buffer per frame ensures deterministic replay across all 15 emulated machine models. Record and playback are frame-accurate.</span>
+      </div>
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">Offline / PWA</span>
+        <span class="tech-v" role="cell">Cache-first service worker pre-caches ROM files, the Wasm module, and all app assets on first visit. Works completely without a network connection thereafter.</span>
+      </div>
+      <div class="tech-row" role="row">
+        <span class="tech-k" role="rowheader">License</span>
+        <span class="tech-v" role="cell">GPL v3. Z80 core adapted from <code>JSSpeccy 3</code>. Machine models ported from <code>Fuse 1.8.0</code>. All ports clearly attributed — see CREDITS and COPYING.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════════════ FOOTER ═══ -->
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">YaSE</div>
+        <div class="footer-tagline">Yet another Spectrum Emulator &mdash; GPL v3</div>
+        <ul class="footer-links" aria-label="Footer links">
+          <li><a href="https://github.com/TetrisSQC/yase3" rel="noopener noreferrer" aria-label="YaSE on GitHub">GitHub</a></li>
+          <li><a href="CREDITS" aria-label="Credits and attributions">Credits</a></li>
+          <li><a href="COPYING" aria-label="GPL v3 license text">Copying (GPL v3)</a></li>
+          <li><a href="CHANGELOG" aria-label="Release changelog">Changelog</a></li>
+          <li><a href="README" aria-label="Project readme">Readme</a></li>
+        </ul>
+      </div>
+      <p class="footer-legal">
+        Not affiliated with Amstrad plc.<br>
+        ZX Spectrum is a trademark of Amstrad.<br>
+        ROMs used under Amstrad's emulation grant.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════ TWEAKS PANEL ═ -->
+<div id="tweaks-panel" role="dialog" aria-label="Design tweaks" aria-modal="false">
+  <h4>
+    Tweaks
+    <button onclick="closeTweaks()" aria-label="Close tweaks panel">✕</button>
+  </h4>
+  <div class="tweak-row">
+    <label for="tweak-scanlines">Scanline intensity</label>
+    <input type="range" id="tweak-scanlines" min="0" max="30" value="13" aria-label="Scanline intensity">
+  </div>
+  <div class="tweak-row">
+    <label>CRT glow accent</label>
+    <div class="swatch-row">
+      <div class="swatch active" style="background:#0da0bc" data-color="#0da0bc" onclick="setGlow(this)" aria-label="Cyan glow" role="button" tabindex="0"></div>
+      <div class="swatch" style="background:#18a83a" data-color="#18a83a" onclick="setGlow(this)" aria-label="Green glow" role="button" tabindex="0"></div>
+      <div class="swatch" style="background:#cc8814" data-color="#cc8814" onclick="setGlow(this)" aria-label="Amber glow" role="button" tabindex="0"></div>
+      <div class="swatch" style="background:#b022a0" data-color="#b022a0" onclick="setGlow(this)" aria-label="Magenta glow" role="button" tabindex="0"></div>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label for="tweak-brightness">Screen brightness</label>
+    <input type="range" id="tweak-brightness" min="75" max="110" value="93" aria-label="Screen brightness">
+  </div>
+  <div class="tweak-row">
+    <label for="tweak-saturation">Color saturation</label>
+    <input type="range" id="tweak-saturation" min="60" max="120" value="82" aria-label="Color saturation">
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CRT WebGL shader — inlined from assets/crt.js (GPL v3, same project)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const VS_SRC = `
+attribute vec2 aPos;
+varying   vec2 vUV;
+void main() {
+    vUV = aPos * 0.5 + 0.5;
+    vUV.y = 1.0 - vUV.y;
+    gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const FS_SRC = `
+precision mediump float;
+uniform sampler2D uTex;
+uniform vec2      uResolution;
+uniform float     uTime;
+uniform float     uScanlines;
+uniform float     uVignette;
+uniform float     uDistortion;
+uniform float     uFlicker;
+uniform float     uPixelshift;
+varying vec2 vUV;
+vec2 barrel(vec2 uv) {
+    vec2 cc   = uv - 0.5;
+    float d   = dot(cc, cc) * 0.12;
+    return uv + cc * (1.0 + d) * d;
+}
+void main() {
+    vec2 uv = vUV;
+    if (uDistortion > 0.5) {
+        uv = barrel(uv);
+        if (uv.x < 0.0032 || uv.x > 0.9968 || uv.y < 0.0042 || uv.y > 0.9958) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
+    }
+    vec4 color;
+    if (uPixelshift > 0.5) {
+        float shift = 1.5 / uResolution.x;
+        color.r = texture2D(uTex, uv + vec2( shift, 0.0)).r;
+        color.g = texture2D(uTex, uv                   ).g;
+        color.b = texture2D(uTex, uv - vec2( shift, 0.0)).b;
+        color.a = 1.0;
+    } else {
+        color = texture2D(uTex, uv);
+    }
+    if (uScanlines > 0.5) {
+        float line = mod(gl_FragCoord.y, 2.0);
+        color.rgb *= 0.72 + 0.28 * step(1.0, line);
+    }
+    if (uVignette > 0.5) {
+        vec2  vp  = uv * (1.0 - uv.yx);
+        float vig = pow(clamp(vp.x * vp.y * 16.0, 0.0, 1.0), 0.3);
+        color.rgb *= vig;
+    }
+    if (uFlicker > 0.5) {
+        color.rgb *= 1.0 - 0.015 * sin(uTime * 47.3);
+    }
+    gl_FragColor = color;
+}`;
+
+class CRTEffect {
+    constructor(container, sourceCanvas) {
+        this.sourceCanvas = sourceCanvas;
+        this.settings = {
+            scanlines: false, vignette: false,
+            distortion: false, flicker: false, pixelshift: false,
+            aspectRatio: '4 / 3',
+        };
+        this.time = 0;
+        this.canvas = document.createElement('canvas');
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.pointerEvents = 'none';
+        this.canvas.style.display = 'none';
+        this.canvas.style.objectFit = 'contain';
+        this.canvas.style.imageRendering = 'pixelated';
+        this.canvas.style.zIndex = '5';
+        container.appendChild(this.canvas);
+        const gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+        this.gl = gl;
+        if (!gl) { console.warn('CRTEffect: WebGL not available'); return; }
+        this._program = this._buildProgram(gl, VS_SRC, FS_SRC);
+        if (!this._program) return;
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        this._quadBuf = buf;
+        this._tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this._tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        const p = this._program;
+        this._uTex        = gl.getUniformLocation(p, 'uTex');
+        this._uResolution = gl.getUniformLocation(p, 'uResolution');
+        this._uTime       = gl.getUniformLocation(p, 'uTime');
+        this._uScanlines  = gl.getUniformLocation(p, 'uScanlines');
+        this._uVignette   = gl.getUniformLocation(p, 'uVignette');
+        this._uDistortion = gl.getUniformLocation(p, 'uDistortion');
+        this._uFlicker    = gl.getUniformLocation(p, 'uFlicker');
+        this._uPixelshift = gl.getUniformLocation(p, 'uPixelshift');
+        this._aPos        = gl.getAttribLocation(p, 'aPos');
+        this.applyAspectRatio();
+        this._syncSize();
+        if (typeof ResizeObserver !== 'undefined') {
+            this._ro = new ResizeObserver(() => this._syncSize());
+            this._ro.observe(sourceCanvas);
+            this._ro.observe(container);
+        }
+        window.addEventListener('resize', () => this._syncSize());
+    }
+    get isActive() {
+        const s = this.settings;
+        return s.scanlines || s.vignette || s.distortion || s.flicker || s.pixelshift;
+    }
+    setSettings(patch) {
+        Object.assign(this.settings, patch);
+        this.canvas.style.display = this.isActive ? 'block' : 'none';
+        if ('aspectRatio' in patch) this.applyAspectRatio();
+    }
+    applyAspectRatio() {
+        const v = this.settings.aspectRatio;
+        const src = this.sourceCanvas;
+        src.style.aspectRatio = '';
+        this.canvas.style.aspectRatio = '';
+        if (v === 'stretch') {
+            src.style.width    = '100%';
+            src.style.height   = '100%';
+            src.style.objectFit = 'fill';
+            this.canvas.style.objectFit = 'fill';
+        } else {
+            const m = /^\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*$/.exec(v);
+            const aw = m ? parseFloat(m[1]) : 4;
+            const ah = m ? parseFloat(m[2]) : 3;
+            this._aspectW = aw;
+            this._aspectH = ah;
+            src.style.objectFit = 'contain';
+            this.canvas.style.objectFit = 'contain';
+            this._applyComputedSize();
+        }
+        this._syncSize();
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => this._syncSize());
+        }
+    }
+    _applyComputedSize() {
+        const src = this.sourceCanvas;
+        const parent = src.parentElement;
+        if (!parent || !this._aspectW) return;
+        const pw = parent.clientWidth;
+        const ph = parent.clientHeight;
+        if (pw === 0 || ph === 0) return;
+        const ratio = this._aspectW / this._aspectH;
+        let w, h;
+        if (pw / ph > ratio) { h = ph; w = h * ratio; }
+        else { w = pw; h = w / ratio; }
+        src.style.width  = `${Math.floor(w)}px`;
+        src.style.height = `${Math.floor(h)}px`;
+    }
+    render() {
+        const gl = this.gl;
+        if (!gl || !this._program || !this.isActive) return;
+        this.time += 1 / 50;
+        gl.bindTexture(gl.TEXTURE_2D, this._tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.sourceCanvas);
+        gl.useProgram(this._program);
+        gl.uniform1i(this._uTex, 0);
+        gl.uniform2f(this._uResolution, this.canvas.width, this.canvas.height);
+        gl.uniform1f(this._uTime,       this.time);
+        gl.uniform1f(this._uScanlines,  this.settings.scanlines  ? 1 : 0);
+        gl.uniform1f(this._uVignette,   this.settings.vignette   ? 1 : 0);
+        gl.uniform1f(this._uDistortion, this.settings.distortion ? 1 : 0);
+        gl.uniform1f(this._uFlicker,    this.settings.flicker    ? 1 : 0);
+        gl.uniform1f(this._uPixelshift, this.settings.pixelshift ? 1 : 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf);
+        gl.enableVertexAttribArray(this._aPos);
+        gl.vertexAttribPointer(this._aPos, 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    _syncSize() {
+        if (this._aspectW && this.settings.aspectRatio !== 'stretch') this._applyComputedSize();
+        const main = this.sourceCanvas;
+        const rect = main.getBoundingClientRect();
+        if (rect.width === 0) return;
+        const parent = this.canvas.offsetParent || main.offsetParent;
+        let dx = 0, dy = 0;
+        if (parent) {
+            const pRect = parent.getBoundingClientRect();
+            dx = rect.left - pRect.left;
+            dy = rect.top  - pRect.top;
+        } else {
+            dx = main.offsetLeft;
+            dy = main.offsetTop;
+        }
+        this.canvas.style.top    = `${dy}px`;
+        this.canvas.style.left   = `${dx}px`;
+        this.canvas.style.width  = `${rect.width}px`;
+        this.canvas.style.height = `${rect.height}px`;
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(rect.width  * dpr);
+        const h = Math.round(rect.height * dpr);
+        if (this.canvas.width !== w || this.canvas.height !== h) {
+            this.canvas.width  = w;
+            this.canvas.height = h;
+            this.gl && this.gl.viewport(0, 0, w, h);
+        }
+    }
+    _buildProgram(gl, vsSrc, fsSrc) {
+        const vs = this._compile(gl, gl.VERTEX_SHADER, vsSrc);
+        const fs = this._compile(gl, gl.FRAGMENT_SHADER, fsSrc);
+        if (!vs || !fs) return null;
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs);
+        gl.attachShader(prog, fs);
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            console.error('CRTEffect: shader link failed:', gl.getProgramInfoLog(prog));
+            return null;
+        }
+        return prog;
+    }
+    _compile(gl, type, src) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.error('CRTEffect: shader compile failed:', gl.getShaderInfoLog(sh));
+            return null;
+        }
+        return sh;
+    }
+}
+
+/* ── PWA install prompt ────────────────────────────────────────────────── */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-btn').hidden = false;
+});
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') deferredPrompt = null;
+});
+
+/* ── CRT hero canvas init ──────────────────────────────────────────────── */
+(function () {
+  const container = document.getElementById('crt-wrap');
+  const canvas    = document.getElementById('spectrum-canvas');
+
+  function startCRT(imgEl) {
+    canvas.width  = imgEl.naturalWidth  || 320;
+    canvas.height = imgEl.naturalHeight || 240;
+    canvas.getContext('2d').drawImage(imgEl, 0, 0);
+
+    const crt = new CRTEffect(container, canvas);
+    window._crt = crt;
+    crt.setSettings({
+      scanlines: true, vignette: true,
+      distortion: true, flicker: true, pixelshift: false,
+      aspectRatio: 'stretch',
+    });
+    (function loop() { crt.render(); requestAnimationFrame(loop); })();
+  }
+
+  const img = new Image();
+  img.onload  = () => startCRT(img);
+  img.onerror = () => {
+    const fb = new Image();
+    fb.onload = () => startCRT(fb);
+    fb.src = 'assets/hero-screenshot.jpg';
+  };
+  img.src = 'assets/screenshot.png';
+})();
+
+/* ── Scroll reveal ─────────────────────────────────────────────────────── */
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('on'); revealObserver.unobserve(e.target); }
+  });
+}, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+/* ── Tweaks panel ──────────────────────────────────────────────────────── */
+const panel = document.getElementById('tweaks-panel');
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === '__activate_edit_mode')   panel.classList.add('open');
+  if (e.data && e.data.type === '__deactivate_edit_mode') panel.classList.remove('open');
+});
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+function closeTweaks() {
+  panel.classList.remove('open');
+  window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+}
+
+function updateCRT() {
+  const crt = window._crt;
+  const sl  = parseInt(document.getElementById('tweak-scanlines').value);
+  const br  = parseInt(document.getElementById('tweak-brightness').value);
+  const sa  = parseInt(document.getElementById('tweak-saturation').value);
+  if (crt) {
+    crt.setSettings({
+      scanlines:   sl > 0,
+      distortion:  sl > 10,
+      flicker:     sl > 5,
+      vignette:    true,
+    });
+  }
+  const kb = document.querySelector('.keyboard-strip img');
+  if (kb) kb.style.filter = `brightness(${br/100}) saturate(${sa/100})`;
+}
+
+function setGlow(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.documentElement.style.setProperty('--zx-cyn', el.dataset.color);
+  // also update bezel glow
+  const bezel = document.querySelector('.crt-bezel');
+  if (bezel) {
+    const c = el.dataset.color;
+    bezel.style.boxShadow = `0 0 0 1px #18181e, 0 0 80px ${c}18, 0 40px 100px rgba(0,0,0,.8)`;
+  }
+}
+
+document.getElementById('tweak-scanlines').addEventListener('input', updateCRT);
+document.getElementById('tweak-brightness').addEventListener('input', updateCRT);
+document.getElementById('tweak-saturation').addEventListener('input', updateCRT);
+</script>
+
+</body>
+</html>

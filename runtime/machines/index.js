@@ -22,6 +22,7 @@ import { tc2048 } from './tc2048.js';
 import { tc2068 } from './tc2068.js';
 import { ts2068 } from './ts2068.js';
 import { specSe } from './specSe.js';
+import { specNext } from './specNext.js';
 
 const machines = new Map();
 
@@ -56,3 +57,4 @@ registerMachine(tc2048);
 registerMachine(tc2068);
 registerMachine(ts2068);
 registerMachine(specSe);
+registerMachine(specNext);

@@ -83,10 +83,14 @@ export class Osd {
         // Use offsetTop/offsetLeft to land directly on the main canvas — the
         // appContainer's top-left can sit above the canvas when the menubar
         // pushes the canvas down.
+        // Use pixel dims from the bounding rect rather than main.style.width.
+        // When main has style.width='100%' the absolutely-positioned OSD canvas
+        // would resolve 100% against the padding box of its containing block,
+        // overlapping any padding-bottom reserved for the on-screen ZX keyboard.
         this.canvas.style.top = `${main.offsetTop}px`;
         this.canvas.style.left = `${main.offsetLeft}px`;
-        this.canvas.style.width = main.style.width || `${rect.width}px`;
-        this.canvas.style.height = main.style.height || `${rect.height}px`;
+        this.canvas.style.width = `${rect.width}px`;
+        this.canvas.style.height = `${rect.height}px`;
     }
 
     get isOpen() {

@@ -24,6 +24,22 @@ const K = {
     B:[7,0x10], N:[7,0x08], M:[7,0x04], SYMBOL:[7,0x02], SPACE:[7,0x01],
 };
 
+// Map ZX key names to DOM `KeyboardEvent.key` strings, so that taps on the
+// on-screen keyboard drive OSD menu navigation while the emulator is paused.
+// 7/8 already act as Up/Down inside MenuWidget; letter taps trigger the
+// "A:" / "B:" hotkey shortcuts.
+const OSD_KEY = {
+    ONE:'1', TWO:'2', THREE:'3', FOUR:'4', FIVE:'5',
+    SIX:'6', SEVEN:'7', EIGHT:'8', NINE:'9', ZERO:'0',
+    Q:'q', W:'w', E:'e', R:'r', T:'t',
+    Y:'y', U:'u', I:'i', O:'o', P:'p',
+    A:'a', S:'s', D:'d', F:'f', G:'g',
+    H:'h', J:'j', K:'k', L:'l',
+    Z:'z', X:'x', C:'c', V:'v',
+    B:'b', N:'n', M:'m',
+    ENTER:'Enter', SPACE:' ',
+};
+
 // Each entry: [keyName, xPct, yPct, wPct, hPct].
 // keyboard.jpg is 1926×817. Tight zones over the visible key body only —
 // label bands intentionally not covered so debug labels sit on the key.
@@ -122,12 +138,22 @@ export class ZXKeyboard {
                 ev.preventDefault();
                 cell.setPointerCapture(ev.pointerId);
                 cell.style.background = 'rgba(255,255,255,0.25)';
+                // OSD open: route to menu widget rather than the (paused) Spectrum.
+                if (this.emu.osd?.isOpen) {
+                    const k = OSD_KEY[name];
+                    if (k) this.emu.osd.onKeyDown({ key: k, type: 'keydown' });
+                    return;
+                }
                 this.heldByPointer.set(ev.pointerId, [row, mask]);
                 this.worker.postMessage({message:'keyDown', row, mask});
             });
             const release = (ev) => {
                 const held = this.heldByPointer.get(ev.pointerId);
-                if (!held) return;
+                if (!held) {
+                    cell.style.background = 'transparent';
+                    try { cell.releasePointerCapture(ev.pointerId); } catch (e) {}
+                    return;
+                }
                 this.heldByPointer.delete(ev.pointerId);
                 cell.style.background = 'transparent';
                 try { cell.releasePointerCapture(ev.pointerId); } catch (e) {}
@@ -161,7 +187,7 @@ export class ZXKeyboard {
             this._syncHeight?.();
             this.container.style.paddingBottom = this.wrap.offsetHeight + 'px';
             this.container.style.boxSizing = 'border-box';
-            this.emu.crtEffect?.applyAspectRatio?.();
+            this._refreshLayout();
         });
         // Joystick overlay collides with keyboard at the bottom — suppress.
         this.emu.touchControls?.setEnabled(false);
@@ -175,8 +201,26 @@ export class ZXKeyboard {
             this.worker.postMessage({message:'keyUp', row, mask});
         }
         this.heldByPointer.clear();
-        this.emu.crtEffect?.applyAspectRatio?.();
+        this._refreshLayout();
         this.emu.touchControls?.setEnabled(true);
+    }
+
+    /**
+     * Recompute the CRT overlay box now and again across subsequent frames.
+     * Mirrors the fullscreen-recompute strategy in jsspeccy.js: the container's
+     * `clientHeight` doesn't always reflect a fresh `padding-bottom` on the
+     * first layout pass (Safari in particular needs ≥1 extra frame), so a
+     * single rAF can leave the CRT canvas stretched against the old box.
+     */
+    _refreshLayout() {
+        const run = () => this.emu.crtEffect?.applyAspectRatio?.();
+        run();
+        requestAnimationFrame(() => {
+            run();
+            requestAnimationFrame(run);
+            setTimeout(run, 50);
+            setTimeout(run, 200);
+        });
     }
     toggle() { this.visible ? this.hide() : this.show(); }
 }
