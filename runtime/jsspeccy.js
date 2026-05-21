@@ -1253,7 +1253,7 @@ window.JSSpeccy = (container, opts) => {
         if (osd.isOpen) osd.close(); else openMainMenu(osd, emu);
     });
     // Hide FAB while menu is open (OSD draws its own close path)
-    const updateFab = () => { menuFab.style.opacity = osd.isOpen ? '0' : '1'; };
+    const updateFab = () => { /* menuFab.style.opacity = osd.isOpen ? '0' : '1'; */};
     emu.on('start', updateFab);
     emu.on('pause', updateFab);
 
@@ -1292,13 +1292,15 @@ window.JSSpeccy = (container, opts) => {
         try { await emu.openFile(file); } catch (e) { console.error(e); }
     }, { accept: '.tap,.tzx,.szx,.z80,.sna,.zip,.dsk,.trd,.scl,.mgt,.img,.fdi,.udi,.opd' });
 
-    if (openMenuOnReady) {
-        emu.onReadyHandlers.push(() => {
-            // Slight defer so the first frame has painted before the OSD
-            // captures pause state.
-            setTimeout(() => openMainMenu(osd, emu), 3000);
-        });
-    }
+    /*
+        if (openMenuOnReady) {
+            emu.onReadyHandlers.push(() => {
+                // Slight defer so the first frame has painted before the OSD
+                // captures pause state.
+                setTimeout(() => openMainMenu(osd, emu), 3000);
+            });
+        }
+    */
 
     /*
         const benchmarkElement = document.getElementById('benchmark');
