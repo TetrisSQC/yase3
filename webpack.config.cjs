@@ -11,11 +11,6 @@ module.exports = [
                 {
                     test: /\.svg$/,
                     loader: 'svg-inline-loader',
-                },
-                {
-                    test: /\.(png|jpe?g)$/,
-                    type: 'asset/resource',
-                    generator: { filename: 'jsspeccy/[name][ext]' },
                 }
             ],
         }
