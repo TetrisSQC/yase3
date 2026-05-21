@@ -1,0 +1,38 @@
+YaSE — Yet another Spectrum Emulator
+====================================
+
+Copyright (C) Matt Westcott and contributors (JSSpeccy 3, base codebase)
+Copyright (C) Philip Kendall et al. (Fuse-derived peripheral ports)
+Copyright (C) Christian Hackbart (YaSE additions; see CREDITS.md)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+The full text of the GNU General Public License v3 is included in
+the file COPYING.gpl3 alongside this notice.
+
+------------------------------------------------------------------------
+
+Third-party components and per-file attributions are listed in CREDITS.md.
+
+Notable derivations:
+
+  - The +D, DISCiPLE, Didaktik, Multiface and Interface 1 peripheral
+    implementations are JavaScript ports of Fuse 1.8.0 (GPL v2+) C
+    source. Each ported file carries an "Ported from Fuse 1.8.0 ..."
+    header. Fuse is Copyright (C) Philip Kendall, Stuart Brady,
+    Fredrick Meunier, Gergely Szasz, Dmitry Sanarin, Darren Salt and
+    many others.
+
+  - The Z80 core, framebuffer renderer, audio engine, base UI shell
+    and the Beta128 / UPD765 FDCs are from JSSpeccy 3 by Matt Westcott.
+
+System ROMs shipped under static/roms/ are subject to Amstrad plc's
+emulation-use permission; they are not covered by GPL v3.

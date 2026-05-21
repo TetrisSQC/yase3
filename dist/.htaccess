@@ -1,0 +1,12 @@
+# WebAssembly streaming compile requires application/wasm.
+AddType application/wasm .wasm
+
+# Common emulator asset types (in case Apache defaults are stale).
+AddType application/javascript .js
+AddType application/manifest+json .webmanifest
+AddType image/svg+xml .svg
+
+# Ensure the service worker isn't aggressively cached so updates land.
+<FilesMatch "service-worker\.js$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+</FilesMatch>
