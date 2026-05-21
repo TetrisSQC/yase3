@@ -1,0 +1,32 @@
+name: Build on Release
+
+on:
+  release:
+    types: [created]   # läuft, wenn ein Release erstellt wird
+  workflow_dispatch:    # erlaubt manuelles Auslösen über die GitHub-UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: dist/   # ggf. anpassen (build/, out/, public/ …)
