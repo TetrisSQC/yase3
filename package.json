@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "test": "npm run build && node test/test.js test/tests.in test/tests.expected",
+    "test:z80n": "node test/test.js test/z80n/tests.in test/z80n/tests.expected",
     "build:core": "node generator/gencore.js generator/core.ts.in build/core.ts",
     "build:wasm:debug": "asc build/core.ts --target debug",
     "build:wasm:release": "asc build/core.ts --target release",
-    "build:js": "mkdir -p dist/jsspeccy && NODE_OPTIONS=--openssl-legacy-provider webpack",
-    "build:static": "mkdir -p dist/jsspeccy && cp static/index.html dist/ && cp static/favicon.ico dist/ && cp static/manifest.webmanifest dist/ && cp static/service-worker.js dist/ && (cp static/icon-*.png dist/ 2>/dev/null || true) && cp README.md dist/ && cp COPYING dist/ && cp COPYING.gpl3 dist/ && cp CREDITS.md dist/ && cp CHANGELOG.md dist/ && cp -r static/roms dist/jsspeccy && cp -r static/tapeloaders dist/jsspeccy",
+    "build:js": "node -e \"require('fs').mkdirSync('dist/jsspeccy',{recursive:true})\" && set NODE_OPTIONS=--openssl-legacy-provider && webpack",
+    "build:static": "node scripts/build-static.cjs",
     "build": "npm run build:core && npm run build:wasm:debug && npm run build:js && npm run build:static",
     "build:release": "npm run build:core && npm run build:wasm:release && npm run build:js && npm run build:static",
     "watch": "npm-watch"
