@@ -10,7 +10,7 @@
     "build:core": "node generator/gencore.js generator/core.ts.in build/core.ts",
     "build:wasm:debug": "asc build/core.ts --target debug",
     "build:wasm:release": "asc build/core.ts --target release",
-    "build:js": "node -e \"require('fs').mkdirSync('dist/jsspeccy',{recursive:true})\" && set NODE_OPTIONS=--openssl-legacy-provider && webpack",
+    "build:js": "node -e \"require('fs').mkdirSync('dist/jsspeccy',{recursive:true})\" && node --openssl-legacy-provider node_modules/.bin/webpack",
     "build:static": "node scripts/build-static.cjs",
     "build": "npm run build:core && npm run build:wasm:debug && npm run build:js && npm run build:static",
     "build:release": "npm run build:core && npm run build:wasm:release && npm run build:js && npm run build:static",
